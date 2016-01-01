@@ -96,6 +96,32 @@ void VBM3D_Final_Process::CollaborativeFilter(int plane,
     alignas(16) FLType l2wiener_sum_f32[4];
     _mm_store_ps(l2wiener_sum_f32, l2wiener_sum);
     L2Wiener += l2wiener_sum_f32[0] + l2wiener_sum_f32[1] + l2wiener_sum_f32[2] + l2wiener_sum_f32[3];
+
+#elif defined(__AVX__)
+    static const ptrdiff_t simd_step = 8;
+    const ptrdiff_t simd_residue = srcGroup.size() % simd_step;
+    const ptrdiff_t simd_width = srcGroup.size() - simd_residue;
+
+    const __m256 sgm_sqr = _mm256_set1_ps(sigmaSquare);
+    __m256 l2wiener_sum = _mm256_setzero_ps();
+
+    for (const auto upper1 = srcp + simd_width; srcp < upper1; srcp += simd_step, refp += simd_step)
+    {
+        const __m256 s1 = _mm256_load_ps(srcp);
+        const __m256 r1 = _mm256_load_ps(refp);
+        const __m256 r1sqr = _mm256_mul_ps(r1, r1);
+
+        const __m256 wiener = _mm256_mul_ps(r1sqr, _mm256_rcp_ps(_mm256_add_ps(r1sqr, sgm_sqr)));
+
+        const __m256 d1 = _mm256_mul_ps(s1, wiener);
+        _mm256_store_ps(srcp, d1);
+        l2wiener_sum = _mm256_add_ps(l2wiener_sum, _mm256_mul_ps(wiener, wiener));
+    }
+
+    alignas(16) FLType l2wiener_sum_f32[8];
+    _mm_store_ps(l2wiener_sum_f32, l2wiener_sum);
+    L2Wiener += l2wiener_sum_f32[0] + l2wiener_sum_f32[1] + l2wiener_sum_f32[2] + l2wiener_sum_f32[3] +\
+				l2wiener_sum_f32[4] + l2wiener_sum_f32[5] + l2wiener_sum_f32[6] + l2wiener_sum_f32[7];
 #endif
 
     for (; srcp < upper; ++srcp, ++refp)
