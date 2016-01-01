@@ -119,7 +119,41 @@ void BM3D_Basic_Process::CollaborativeFilter(int plane,
     alignas(16) int32_t cmp_sum_i32[4];
     _mm_store_si128(reinterpret_cast<__m128i *>(cmp_sum_i32), cmp_sum);
     retainedCoefs += cmp_sum_i32[0] + cmp_sum_i32[1] + cmp_sum_i32[2] + cmp_sum_i32[3];
+	
+#elif defined(__AVX__)
+    static const ptrdiff_t simd_step = 8;
+    const ptrdiff_t simd_residue = srcGroup.size() % simd_step;
+    const ptrdiff_t simd_width = srcGroup.size() - simd_residue;
+	
+    __m128i cmp_sum   = _mm_setzero_si128();
+	
+	__m128i cmp_0, cmp_1;
+	
+    for (const auto upper1 = srcp + simd_width; srcp < upper1; srcp += simd_step, thrp += simd_step)
+    {
+        const __m256 s1 = _mm256_load_ps(srcp);
+        const __m256 t1 = _mm256_load_ps(thrp);
+		
+        const __m256 abs = _mm256_abs_ps(s1);
+        const __m256 cmp = _mm256_cmp_ps(abs, t1, _CMP_GT_OQ);
+
+        const __m256 d1 = _mm256_and_ps(cmp, s1);
+        _mm256_storeu_ps(srcp, d1);
+		
+        cmp_0 = _mm256_extractf128_si256(cmp, 0);
+		cmp_1 = _mm256_extractf128_si256(cmp, 1);
+		
+		_mm256_zeroupper();
+		
+		cmp_sum = _mm_sub_epi32(cmp_sum, cmp_0);
+		cmp_sum = _mm_sub_epi32(cmp_sum, cmp_1);
+    }
+
+    alignas(16) int32_t cmp_sum_i32[4];
+    _mm_store_si128(reinterpret_cast<__m128i *>(cmp_sum_i32), cmp_sum);
+    retainedCoefs += cmp_sum_i32[0] + cmp_sum_i32[1] + cmp_sum_i32[2] + cmp_sum_i32[3];
 #endif
+
 
     for (; srcp < upper; ++srcp, ++thrp)
     {
