@@ -16,6 +16,25 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#if  defined(__SSE2__)
+inline static __m128 _mm_abs_ps(__m128 x)
+{
+    static __m128 const Mask = _mm_castsi128_ps(_mm_set1_epi32(~0x80000000));
+
+    __m128 abs = _mm_and_ps(Mask, x);
+
+    return abs;
+}
+#elif defined(__AVX__)
+inline static __m256 _mm256_abs_ps(__m256 x)
+{
+    static __m256 const Mask = _mm256_castsi256_ps(_mm256_set1_epi32(~0x80000000));
+
+    __m256 abs = _mm256_and_ps(Mask, x);
+
+    return abs;
+}
+#endif
 
 #include "VBM3D_Basic.h"
 
@@ -95,11 +114,9 @@ void VBM3D_Basic_Process::CollaborativeFilter(int plane,
     {
         const __m128 s1 = _mm_load_ps(srcp);
         const __m128 t1p = _mm_load_ps(thrp);
-        const __m128 t1n = _mm_sub_ps(zero_ps, t1p);
-
-        const __m128 cmp1 = _mm_cmpgt_ps(s1, t1p);
-        const __m128 cmp2 = _mm_cmplt_ps(s1, t1n);
-        const __m128 cmp = _mm_or_ps(cmp1, cmp2);
+		
+        const __m128 abs = _mm_abs_ps(srcp);
+		const __m128 cmp = _mm_cmpgt_ps(s1, t1p);
 
         const __m128 d1 = _mm_and_ps(cmp, s1);
         _mm_store_ps(srcp, d1);
