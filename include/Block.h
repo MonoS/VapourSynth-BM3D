@@ -437,12 +437,6 @@ public:
         const ptrdiff_t simd_width = Width() - simd_residue;
         const ptrdiff_t src_stride1 = src_stride - simd_width;
         const ptrdiff_t src_stride2 = src_stride - simd_residue;
-#elif defined(__AVX__)
-		static const ptrdiff_t simd_step = 16;
-        const ptrdiff_t simd_residue = Width() % simd_step;
-        const ptrdiff_t simd_width = Width() - simd_residue;
-        const ptrdiff_t src_stride1 = src_stride - simd_width;
-        const ptrdiff_t src_stride2 = src_stride - simd_residue;
 #else
         const ptrdiff_t src_stride0 = src_stride - Width();
 #endif
@@ -569,12 +563,6 @@ public:
         const ptrdiff_t simd_width = Width() - simd_residue;
         const ptrdiff_t src_stride1 = src_stride - simd_width;
         const ptrdiff_t src_stride2 = src_stride - simd_residue;
-#elif defined(__AVX__)
-		static const ptrdiff_t simd_step = 16;
-        const ptrdiff_t simd_residue = Width() % simd_step;
-        const ptrdiff_t simd_width = Width() - simd_residue;
-        const ptrdiff_t src_stride1 = src_stride - simd_width;
-        const ptrdiff_t src_stride2 = src_stride - simd_residue;
 #else
         const ptrdiff_t src_stride0 = src_stride - Width();
 #endif
@@ -617,57 +605,6 @@ public:
                 alignas(16) FLType ssum_f32[4];
                 _mm_store_ps(ssum_f32, ssum);
                 dist += ssum_f32[0] + ssum_f32[1] + ssum_f32[2] + ssum_f32[3];
-            }
-
-            if (simd_residue > 0)
-            {
-                auto refp = refp0 + simd_width;
-                auto srcp = srcp0 + simd_width;
-
-                for (PCType y = 0; y < Height(); ++y)
-                {
-                    for (const auto upper = refp + simd_residue; refp < upper; ++refp, ++srcp)
-                    {
-                        dist_type temp = static_cast<dist_type>(*refp) - static_cast<dist_type>(*srcp);
-                        dist += temp * temp;
-                    }
-
-                    refp += simd_width;
-                    srcp += src_stride2;
-                }
-            }
-#elif defined(__AVX__)
-            if(simd_width > 0)
-            {
-                auto refp = refp0;
-                auto srcp = srcp0;
-
-                __m256 ssum = _mm256_setzero_ps();
-
-                for (PCType y = 0; y < Height(); ++y)
-                {
-                    for (const auto upper = refp + simd_width; refp < upper; refp += simd_step, srcp += simd_step)
-                    {
-                        const __m256 r1 = _mm256_loadu_ps(refp);
-                        const __m256 r2 = _mm256_loadu_ps(refp + 8);
-                        const __m256 s1 = _mm256_loadu_ps(srcp);
-                        const __m256 s2 = _mm256_loadu_ps(srcp + 8);
-                        const __m256 d1 = _mm256_sub_ps(r1, s1);
-                        const __m256 d2 = _mm256_sub_ps(r2, s2);
-                        const __m256 d1sqr = _mm256_mul_ps(d1, d1);
-                        const __m256 d2sqr = _mm256_mul_ps(d2, d2);
-                        ssum = _mm256_add_ps(ssum, d1sqr);
-                        ssum = _mm256_add_ps(ssum, d2sqr);
-                    }
-
-                    refp += simd_residue;
-                    srcp += src_stride1;
-                }
-
-                alignas(32) FLType ssum_f32[8];
-                _mm256_store_ps(ssum_f32, ssum);
-                dist += ssum_f32[0] + ssum_f32[1] + ssum_f32[2] + ssum_f32[3] +\
-						ssum_f32[4] + ssum_f32[5] + ssum_f32[6] + ssum_f32[7];
             }
 
             if (simd_residue > 0)
