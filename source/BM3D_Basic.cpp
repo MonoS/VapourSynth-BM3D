@@ -35,6 +35,12 @@ inline static __m256 _mm256_abs_ps(__m256 x)
     return abs;
 }
 #endif
+inline float ffabs(float a)
+{
+    uint32_t i = *(int*)&a & (~0x80000000);
+
+    return *(float*)&i;
+}
 
 #include "BM3D_Basic.h"
 
@@ -164,7 +170,7 @@ void BM3D_Basic_Process::CollaborativeFilter(int plane,
 
     for (; srcp < upper; ++srcp, ++thrp)
     {
-        if (*srcp > *thrp || *srcp < -*thrp)
+        if (ffabs(*srcp) > *thrp)
         {
             ++retainedCoefs;
         }
