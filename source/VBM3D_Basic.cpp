@@ -35,11 +35,19 @@ inline static __m256 _mm256_abs_ps(__m256 x)
     return abs;
 }
 #endif
+
+union FI{
+float *f;
+uint32_t *i;
+};
+
 inline float ffabs(float a)
 {
-    uint32_t i = *(int*)&a & (~0x80000000);
+    FI fi;
+    fi.f = &a;
+    *fi.i &= (~0x80000000);
 
-    return *(float*)&i;
+    return *fi.f;
 }
 
 #include "VBM3D_Basic.h"
