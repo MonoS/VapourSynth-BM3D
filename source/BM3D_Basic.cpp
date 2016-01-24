@@ -25,7 +25,7 @@ inline static __m128 _mm_abs_ps(__m128 x)
 
     return abs;
 }
-#elif defined(__AVX__)
+#elif defined(__AVX2__)
 inline static __m256 _mm256_abs_ps(__m256 x)
 {
     static __m256 const Mask = _mm256_castsi256_ps(_mm256_set1_epi32(~0x80000000));
@@ -140,7 +140,7 @@ void BM3D_Basic_Process::CollaborativeFilter(int plane,
     _mm_store_si128(reinterpret_cast<__m128i *>(cmp_sum_i32), cmp_sum);
     retainedCoefs += cmp_sum_i32[0] + cmp_sum_i32[1] + cmp_sum_i32[2] + cmp_sum_i32[3];
 	
-#elif defined(__AVX__)
+#elif defined(__AVX2__)
     static const ptrdiff_t simd_step = 8;
     const ptrdiff_t simd_residue = srcGroup.size() % simd_step;
     const ptrdiff_t simd_width = srcGroup.size() - simd_residue;
@@ -160,18 +160,13 @@ void BM3D_Basic_Process::CollaborativeFilter(int plane,
         const __m256 d1 = _mm256_and_ps(cmp, s1);
         _mm256_storeu_ps(srcp, d1);
 		
-        cmp_0 = _mm256_extractf128_si256(cmp, 0);
-		cmp_1 = _mm256_extractf128_si256(cmp, 1);
-		
-		_mm256_zeroupper();
-		
-		cmp_sum = _mm_sub_epi32(cmp_sum, cmp_0);
-		cmp_sum = _mm_sub_epi32(cmp_sum, cmp_1);
+        cmp_sum = _mm256_sub_epi32(cmp_sum, _mm256_castps_si256(cmp));
     }
 
-    alignas(16) int32_t cmp_sum_i32[4];
+    alignas(32) int32_t cmp_sum_i32[8];
     _mm_store_si128(reinterpret_cast<__m128i *>(cmp_sum_i32), cmp_sum);
-    retainedCoefs += cmp_sum_i32[0] + cmp_sum_i32[1] + cmp_sum_i32[2] + cmp_sum_i32[3];
+    retainedCoefs += cmp_sum_i32[0] + cmp_sum_i32[1] + cmp_sum_i32[2] + cmp_sum_i32[3]\
+					 cmp_sum_i32[4] + cmp_sum_i32[5] + cmp_sum_i32[6] + cmp_sum_i32[7];
 #endif
 
 
